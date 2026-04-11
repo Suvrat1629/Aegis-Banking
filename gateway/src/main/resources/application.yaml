@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: aegis-gateway
+
+server:
+  port: 8080
+
+grpc:
+  client:
+    ledger:
+      address: static://localhost:50051
+      negotiation-type: plaintext
+          
+logging:
+  level:
+    com.aegis.gateway: DEBUG
+    org.springframework.ws: INFO

@@ -1,0 +1,19 @@
+syntax = "proto3";
+package ledger;
+option java_package = "com.aegis.ledger.grpc";
+option go_package = "github.com/aegis-banking/ledger-core/internal/pb;pb";
+
+service LedgerService {
+  rpc ExecuteTransfer (TransferRequest) returns (TransferResponse);
+}
+
+message TransferRequest {
+  string from_account = 1;
+  string to_account = 2;
+  double amount = 3;
+}
+
+message TransferResponse {
+  bool success = 1;
+  string message = 2;
+}

@@ -1,0 +1,91 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.0.5'
+	id 'io.spring.dependency-management' version '1.1.7'
+	id 'com.google.protobuf' version '0.9.5'
+
+	id 'com.github.bjornvester.xjc' version '1.9.0'
+}
+
+group = 'com.aegis'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+ext {
+	set('springGrpcVersion', "1.0.2")
+}
+
+dependencies {
+    // Spring Boot Starters
+    implementation 'org.springframework.boot:spring-boot-starter-webservices'  // SOAP
+    implementation 'org.springframework.boot:spring-boot-starter-amqp'         // RabbitMQ
+
+    // gRPC Client
+    implementation 'net.devh:grpc-client-spring-boot-starter:3.1.0.RELEASE'
+
+    // JAXB for SOAP / XSD
+    implementation 'wsdl4j:wsdl4j'
+    implementation 'jakarta.xml.bind:jakarta.xml.bind-api'
+    implementation 'org.glassfish.jaxb:jaxb-runtime'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // Test
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-amqp-test'
+}
+
+dependencyManagement {
+	imports {
+		mavenBom "org.springframework.grpc:spring-grpc-dependencies:${springGrpcVersion}"
+	}
+}
+
+protobuf {
+	protoc {
+		artifact = 'com.google.protobuf:protoc'
+	}
+	plugins {
+		grpc {
+			artifact = 'io.grpc:protoc-gen-grpc-java'
+		}
+	}
+	generateProtoTasks {
+		all()*.plugins {
+			grpc {
+				option '@generated=omit'
+			}
+		}
+	}
+}
+
+sourceSets {
+	main {
+		proto {
+			srcDir new File(project.rootDir, "../contracts")
+		}
+	}
+}
+
+xjc {
+	xsdDir.set(layout.projectDirectory.dir("src/main/resources/wsdl"))
+
+	useJakarta.set(true)
+
+	defaultPackage.set("com.aegis.gateway.soap")
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  aegis-db:
+    image: postgres:15-alpine
+    container_name: aegis-db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: aegis_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: aegis-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@aegis.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - aegis-db
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: aegis-mq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    container_name: aegis-es
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.12.0
+    container_name: aegis-logstash
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline
+    depends_on:
+      - elasticsearch
+      - rabbitmq
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.12.0
+    container_name: aegis-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
