@@ -1,0 +1,68 @@
+### Aegis-Banking: Repository-level .gitignore
+
+# Environment
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# Editor directories and files
+.vscode/
+.idea/
+*.iml
+*.swp
+*~
+
+# Go build / test
+/bin/
+/pkg/
+*.exe
+*.test
+*.out
+coverage.out
+
+# Go vendor (uncomment if you vendor dependencies)
+# /vendor/
+
+# Protobuf generated files (keep if you want them in repo)
+# /internal/pb/
+
+# Gradle / Java
+/gateway/build/
+/gateway/.gradle/
+/gateway/out/
+/gateway/build.gradle.kts
+/gateway/*.class
+*.class
+*.jar
+*.war
+*.ear
+
+# Maven
+/target/
+
+# Node
+node_modules/
+
+# Docker
+docker-compose.override.yml
+**/docker-compose.override.yml
+
+# Logs
+.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+
+# IDE / OS files
+Thumbs.db
+
+# Test artifacts
+/coverage/
+
+# Database dumps
+*.sql
+*.dump
