@@ -27,6 +27,9 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     container_name: aegis-mq
+    command: rabbitmq-server --rabbit vm_memory_high_watermark 0.8
+    environment:
+      - RABBITMQ_DISK_FREE_LIMIT=50MB
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -44,6 +47,9 @@ services:
   logstash:
     image: docker.elastic.co/logstash/logstash:8.12.0
     container_name: aegis-logstash
+    environment:
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
     volumes:
       - ./logstash/pipeline:/usr/share/logstash/pipeline
     depends_on:

@@ -10,9 +10,7 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-const (
-	AuditQueueName = "audit_queue"
-)
+const AuditQueueName = "audit_queue"
 
 type RabbitMQProducer struct {
 	conn    *amqp.Connection
@@ -31,35 +29,26 @@ func NewRabbitMQProducer(url string) (*RabbitMQProducer, error) {
 		return nil, fmt.Errorf("failed to create channel: %w", err)
 	}
 
-	_, err = ch.QueueDeclare(
-		AuditQueueName,
-		true,
-		false,
-		false,
-		false,
-		nil,
-	)
+	_, err = ch.QueueDeclare(AuditQueueName, true, false, false, false, nil)
 	if err != nil {
 		ch.Close()
 		conn.Close()
 		return nil, fmt.Errorf("failed to declare queue: %w", err)
 	}
 
-	return &RabbitMQProducer{
-		conn: 	 conn,
-		channel: ch,
-	}, nil
+	return &RabbitMQProducer{conn: conn, channel: ch}, nil
 }
 
-func (p *RabbitMQProducer) PublishAudit(from, to string, amount float64) error {
+func (p *RabbitMQProducer) PublishAudit(txnID, from, to string, amount float64) error {
 	event := AuditEvent{
-		TransactionID: fmt.Sprintf("txn_%d", time.Now().UnixNano()),
+		TransactionID: txnID,
 		FromAccount:   from,
 		ToAccount:     to,
 		Amount:        amount,
 		Status:        "COMPLETED",
 		Timestamp:     time.Now(),
 		Message:       "Transfer completed successfully",
+		Currency:      "INR",
 	}
 
 	body, err := json.Marshal(event)
@@ -69,10 +58,10 @@ func (p *RabbitMQProducer) PublishAudit(from, to string, amount float64) error {
 
 	err = p.channel.PublishWithContext(
 		context.Background(),
-		"",                // exchange (default exchange)
-		AuditQueueName,    // routing key = queue name
-		false,             // mandatory
-		false,             // immediate
+		"",
+		AuditQueueName,
+		false,
+		false,
 		amqp.Publishing{
 			DeliveryMode: amqp.Persistent,
 			ContentType:  "application/json",
@@ -84,7 +73,7 @@ func (p *RabbitMQProducer) PublishAudit(from, to string, amount float64) error {
 		return fmt.Errorf("failed to publish message: %w", err)
 	}
 
-	log.Printf("Published audit event: %s → %s | ₹%.2f", from, to, amount)
+	log.Printf("📤 Audit published: txn=%s %s→%s ₹%.2f", txnID, from, to, amount)
 	return nil
 }
 

@@ -34,7 +34,12 @@ type Config struct {
 func main() {
 
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env was found")
+		log.Println("No .env was found in working dir, trying parent dir")
+		if err2 := godotenv.Load("../.env"); err2 != nil {
+			log.Println("No .env was found in parent dir either; using defaults and environment variables")
+		} else {
+			log.Println("Loaded .env from parent dir")
+		}
 	}
 
 	cfg := loadConfig()
@@ -89,6 +94,7 @@ func loadConfig() Config {
 		DBPassword: getEnv("DB_PASSWORD", "password"), // still fallback for local dev
 		DBName:     getEnv("DB_NAME", "aegis_db"),
 		GRPCPort:   getEnv("GRPC_PORT", "50051"),
+		RabbitMQURL: getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/"),
 	}
 }
 

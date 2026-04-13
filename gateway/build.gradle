@@ -26,7 +26,7 @@ ext {
 
 dependencies {
     // Spring Boot Starters
-    implementation 'org.springframework.boot:spring-boot-starter-webservices'  // SOAP
+    implementation 'org.springframework.boot:spring-boot-starter-web-services'  // SOAP
     implementation 'org.springframework.boot:spring-boot-starter-amqp'         // RabbitMQ
 
     // gRPC Client
