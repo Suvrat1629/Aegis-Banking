@@ -23,42 +23,93 @@ func (r *AccountRepository) ExecuteTransfer(ctx context.Context, transactionID, 
 	}
 	defer tx.Rollback()
 
-	// 1. Check balance with row lock
-	var balance float64
-	err = tx.QueryRowContext(ctx,
-		"SELECT balance FROM accounts WHERE id = $1 FOR UPDATE", from).Scan(&balance)
+	// Idempotency: if transaction already recorded in transaction_headers, return nil (idempotent)
+	var exists bool
+	err = tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM transaction_headers WHERE transaction_id = $1)", transactionID).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("failed to check existing transaction: %w", err)
+	}
+	if exists {
+		// already applied
+		return nil
+	}
+
+	// Lock accounts in a deterministic order to avoid deadlocks under concurrent transfers
+	first, second := from, to
+	if from > to {
+		first, second = to, from
+	}
+
+	// Acquire FOR UPDATE locks in the same order every time
+	if _, err := tx.ExecContext(ctx, "SELECT 1 FROM accounts WHERE id = $1 FOR UPDATE", first); err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("account not found: %s", first)
+		}
+		return fmt.Errorf("failed to lock first account: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, "SELECT 1 FROM accounts WHERE id = $1 FOR UPDATE", second); err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("account not found: %s", second)
+		}
+		return fmt.Errorf("failed to lock second account: %w", err)
+	}
+
+	// Now read balances (rows are locked)
+	var fromBalance float64
+	err = tx.QueryRowContext(ctx, "SELECT balance FROM accounts WHERE id = $1", from).Scan(&fromBalance)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return fmt.Errorf("from account not found: %s", from)
 		}
-		return fmt.Errorf("failed to read balance: %w", err)
+		return fmt.Errorf("failed to read from account balance: %w", err)
+	}
+	if fromBalance < amount {
+		return fmt.Errorf("insufficient balance in %s: have %.2f, need %.2f", from, fromBalance, amount)
 	}
 
-	if balance < amount {
-		return fmt.Errorf("insufficient balance in %s: have %.2f, need %.2f", from, balance, amount)
+	var toBalance float64
+	err = tx.QueryRowContext(ctx, "SELECT balance FROM accounts WHERE id = $1", to).Scan(&toBalance)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("to account not found: %s", to)
+		}
+		return fmt.Errorf("failed to read to account balance: %w", err)
 	}
 
-	// 2. Debit
-	_, err = tx.ExecContext(ctx,
-		"UPDATE accounts SET balance = balance - $1 WHERE id = $2", amount, from)
+	// Apply balance updates
+	_, err = tx.ExecContext(ctx, "UPDATE accounts SET balance = balance - $1 WHERE id = $2", amount, from)
 	if err != nil {
 		return fmt.Errorf("debit failed: %w", err)
 	}
-
-	// 3. Credit
-	_, err = tx.ExecContext(ctx,
-		"UPDATE accounts SET balance = balance + $1 WHERE id = $2", amount, to)
+	_, err = tx.ExecContext(ctx, "UPDATE accounts SET balance = balance + $1 WHERE id = $2", amount, to)
 	if err != nil {
 		return fmt.Errorf("credit failed: %w", err)
 	}
 
-	// 4. Log to transactions table
+	// Record a transaction header (used for idempotency and simple searching)
 	_, err = tx.ExecContext(ctx,
-		`INSERT INTO transactions (transaction_id, from_account, to_account, amount, status)
+		`INSERT INTO transaction_headers (transaction_id, from_account, to_account, amount, status)
 		 VALUES ($1, $2, $3, $4, 'COMPLETED')`,
 		transactionID, from, to, amount)
 	if err != nil {
-		return fmt.Errorf("failed to log transaction: %w", err)
+		return fmt.Errorf("failed to insert transaction header: %w", err)
+	}
+
+	// Insert double-entry ledger rows: DEBIT on source (negative), CREDIT on destination (positive)
+	_, err = tx.ExecContext(ctx,
+		`INSERT INTO ledger_entries (transaction_id, account_id, amount, entry_type)
+		 VALUES ($1, $2, $3, 'DEBIT')`,
+		transactionID, from, -amount)
+	if err != nil {
+		return fmt.Errorf("failed to insert ledger debit entry: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx,
+		`INSERT INTO ledger_entries (transaction_id, account_id, amount, entry_type)
+		 VALUES ($1, $2, $3, 'CREDIT')`,
+		transactionID, to, amount)
+	if err != nil {
+		return fmt.Errorf("failed to insert ledger credit entry: %w", err)
 	}
 
 	// 5. Save rich audit log (ACID guaranteed)
@@ -66,7 +117,7 @@ func (r *AccountRepository) ExecuteTransfer(ctx context.Context, transactionID, 
 		return fmt.Errorf("failed to save audit log: %w", err)
 	}
 
-	// 6. Commit everything
+	// Commit everything
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
