@@ -13,7 +13,7 @@ public class LedgerGrpcClient {
     @GrpcClient("ledger")
     private LedgerServiceGrpc.LedgerServiceBlockingStub ledgerStub;
 
-public Ledger.TransferResponse executeTransfer(String txnId, String from, String to, double amount, 
+    public Ledger.TransferResponse executeTransfer(String txnId, String from, String to, double amount, 
                                                    String deviceId, String ipAddress, String userAgent) {
         Ledger.TransferRequest request = Ledger.TransferRequest.newBuilder()
                 .setTransactionId(txnId)
@@ -29,6 +29,32 @@ public Ledger.TransferResponse executeTransfer(String txnId, String from, String
             return ledgerStub.executeTransfer(request);
         } catch (StatusRuntimeException e) {
             throw new RuntimeException("gRPC call to ledger failed: " + e.getStatus().getDescription(), e);
+        }
+    }
+
+    public Ledger.BalanceResponse getAccountBalance(String accountId) {
+        Ledger.BalanceRequest request = Ledger.BalanceRequest.newBuilder()
+                .setAccountId(accountId != null ? accountId : "")
+                .build();
+
+        try {
+            return ledgerStub.getAccountBalance(request);
+        } catch (StatusRuntimeException e) {
+            throw new RuntimeException("gRPC call to ledger.getAccountBalance failed: " + e.getStatus().getDescription(), e);
+        }
+    }
+
+    public Ledger.HistoryResponse getAccountHistory(String accountId, int limit) {
+        Ledger.HistoryRequest request = Ledger.HistoryRequest.newBuilder()
+                .setAccountId(accountId != null ? accountId : "")
+                .setLimit(limit)
+                .setOffset(0)
+                .build();
+
+        try {
+            return ledgerStub.getAccountHistory(request);
+        } catch (StatusRuntimeException e) {
+            throw new RuntimeException("gRPC call to ledger.getAccountHistory failed: " + e.getStatus().getDescription(), e);
         }
     }
 }

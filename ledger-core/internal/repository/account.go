@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	pb "github.com/aegis-banking/ledger-core/internal/pb"
 )
 
 type AccountRepository struct {
@@ -77,11 +79,11 @@ func (r *AccountRepository) ExecuteTransfer(ctx context.Context, transactionID, 
 	}
 
 	// Apply balance updates
-	_, err = tx.ExecContext(ctx, "UPDATE accounts SET balance = balance - $1 WHERE id = $2", amount, from)
+	_, err = tx.ExecContext(ctx, "UPDATE accounts SET balance = balance - $1, last_updated = NOW() WHERE id = $2", amount, from)
 	if err != nil {
 		return fmt.Errorf("debit failed: %w", err)
 	}
-	_, err = tx.ExecContext(ctx, "UPDATE accounts SET balance = balance + $1 WHERE id = $2", amount, to)
+	_, err = tx.ExecContext(ctx, "UPDATE accounts SET balance = balance + $1, last_updated = NOW() WHERE id = $2", amount, to)
 	if err != nil {
 		return fmt.Errorf("credit failed: %w", err)
 	}
@@ -123,6 +125,58 @@ func (r *AccountRepository) ExecuteTransfer(ctx context.Context, transactionID, 
 	}
 
 	return nil
+}
+
+func (r *AccountRepository) GetBalance(ctx context.Context, id string) (float64, string, string, error) {
+	var balance float64
+	var owner string
+	var lastUpdated time.Time
+
+	query := "SELECT balance, owner_name, last_updated FROM accounts WHERE id = $1"
+	err := r.db.QueryRowContext(ctx, query, id).Scan(&balance, &owner, &lastUpdated)
+	if err != nil {
+		return 0, "", "", err
+	}
+	return balance, owner, lastUpdated.Format(time.RFC3339), nil
+}
+
+func (r *AccountRepository) GetHistory(ctx context.Context, id string, limit, offset int32) ([]*pb.TransactionEntry, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+
+	if offset < 0 {
+		offset = 0
+	}
+
+	query := `
+		SELECT transaction_id, ABS(amount), entry_type, COALESCE(description, ''), created_at 
+		FROM ledger_entries 
+		WHERE account_id = $1 
+		ORDER BY created_at DESC 
+		LIMIT $2 OFFSET $3`
+
+	rows, err := r.db.QueryContext(ctx, query, id, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var entries []*pb.TransactionEntry
+	for rows.Next() {
+		var e pb.TransactionEntry
+		var ts time.Time
+		if err := rows.Scan(&e.TransactionId, &e.Amount, &e.EntryType, &e.Description, &ts); err != nil {	
+			return nil, err
+		}
+		e.CreatedAt = ts.Format(time.RFC3339)
+		entries = append(entries, &e)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return entries, nil
 }
 
 func (r *AccountRepository) SaveAuditLog(ctx context.Context, tx *sql.Tx, txnID, from, to string, amount float64, deviceID, ipAddress, userAgent string) error {

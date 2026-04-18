@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<con:soapui-project id="e5679a17-6b94-433b-9a88-6b115a3d8a58" activeEnvironment="Default" name="aegis-banking" resourceRoot="" soapui-version="5.9.1" abortOnError="false" runType="SEQUENTIAL" xmlns:con="http://eviware.com/soapui/config"><con:settings/><con:interface xsi:type="con:WsdlInterface" id="54108206-6cec-4291-9924-e73f3ae2fe6d" wsaVersion="NONE" name="TransactionsPortSoap11" type="wsdl" bindingName="{http://aegis.com/banking}TransactionsPortSoap11" soapVersion="1_1" anonymous="optional" definition="http://localhost:8080/ws/transactions.wsdl" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><con:settings/><con:definitionCache type="TEXT" rootPart="http://localhost:8080/ws/transactions.wsdl"><con:part><con:url>http://localhost:8080/ws/transactions.wsdl</con:url><con:content><![CDATA[<wsdl:definitions targetNamespace="http://aegis.com/banking" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:sch="http://aegis.com/banking" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:tns="http://aegis.com/banking">
+  <wsdl:types>
+    <xs:schema elementFormDefault="qualified" targetNamespace="http://aegis.com/banking" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+      <xs:element name="PostTransferRequest">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="from" type="xs:string"/>
+            <xs:element name="to" type="xs:string"/>
+            <xs:element name="amount" type="xs:double"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="PostTransferResponse">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="success" type="xs:boolean"/>
+            <xs:element name="message" type="xs:string"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:schema>
+  </wsdl:types>
+  <wsdl:message name="PostTransferResponse">
+    <wsdl:part element="tns:PostTransferResponse" name="PostTransferResponse"></wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="PostTransferRequest">
+    <wsdl:part element="tns:PostTransferRequest" name="PostTransferRequest"></wsdl:part>
+  </wsdl:message>
+  <wsdl:portType name="TransactionsPort">
+    <wsdl:operation name="PostTransfer">
+      <wsdl:input message="tns:PostTransferRequest" name="PostTransferRequest"></wsdl:input>
+      <wsdl:output message="tns:PostTransferResponse" name="PostTransferResponse"></wsdl:output>
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="TransactionsPortSoap11" type="tns:TransactionsPort">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="PostTransfer">
+      <soap:operation soapAction=""/>
+      <wsdl:input name="PostTransferRequest">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="PostTransferResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="TransactionsPortService">
+    <wsdl:port binding="tns:TransactionsPortSoap11" name="TransactionsPortSoap11">
+      <soap:address location="http://localhost:8080/ws"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>]]></con:content><con:type>http://schemas.xmlsoap.org/wsdl/</con:type></con:part></con:definitionCache><con:endpoints><con:endpoint>http://localhost:8080/ws</con:endpoint></con:endpoints><con:operation id="d0978727-566e-49c0-a8cc-ea74424d0d36" isOneWay="false" action="" name="PostTransfer" bindingOperationName="PostTransfer" type="Request-Response" outputName="PostTransferResponse" inputName="PostTransferRequest" receivesAttachments="false" sendsAttachments="false" anonymous="optional"><con:settings/><con:call id="b191decb-7cff-4609-aa1a-60b0f0bf86b1" name="Request 1"><con:settings><con:setting id="com.eviware.soapui.impl.wsdl.WsdlRequest@request-headers">&lt;entry key="X-Device-ID" value="Arch-Linux-Master-Node" xmlns="http://eviware.com/soapui/config"/></con:setting></con:settings><con:encoding>UTF-8</con:encoding><con:endpoint>http://localhost:8080/ws</con:endpoint><con:request><![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ban="http://aegis.com/banking">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <ban:PostTransferRequest>
+         <ban:from>acc_123</ban:from>
+         <ban:to>acc_456</ban:to>
+         <ban:amount>500.00</ban:amount>
+      </ban:PostTransferRequest>
+   </soapenv:Body>
+</soapenv:Envelope>]]></con:request><con:credentials><con:authType>No Authorization</con:authType></con:credentials><con:jmsConfig JMSDeliveryMode="PERSISTENT"/><con:jmsPropertyConfig/><con:wsaConfig mustUnderstand="NONE" version="200508" action="http://aegis.com/banking/TransactionsPort/PostTransferRequest"/><con:wsrmConfig version="1.2"/></con:call></con:operation></con:interface><con:testSuite id="eb65031b-a2da-4a92-adbe-d78a8d218d23" name="TestSuite 1"><con:settings/><con:runType>SEQUENTIAL</con:runType><con:testCase id="3bdde517-5ffe-47d5-938b-3eef964718e9" failOnError="true" failTestCaseOnErrors="true" keepSession="false" maxResults="0" name="TestCase 1" searchProperties="true"><con:settings/><con:testStep type="request" id="38a6b7d1-5195-4a59-af1e-08a4c11d4d72" name="PostTransfer - Request 1"><con:settings/><con:config xsi:type="con:RequestStep" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><con:interface>TransactionsPortSoap11</con:interface><con:operation>PostTransfer</con:operation><con:request name="PostTransfer - Request 1" outgoingWss="" incomingWss="" timeout="" sslKeystore="" useWsAddressing="false" useWsReliableMessaging="false" wssPasswordType="" id="3288f082-bc16-4509-90a2-52b5d4aa7d4e"><con:settings><con:setting id="com.eviware.soapui.impl.wsdl.WsdlRequest@request-headers">&lt;xml-fragment/></con:setting></con:settings><con:encoding>UTF-8</con:encoding><con:endpoint>http://localhost:8080/ws</con:endpoint><con:request><![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ban="http://aegis.com/banking">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <ban:PostTransferRequest>
+         <ban:from>acc_123</ban:from>
+         <ban:to>acc_456</ban:to>
+         <ban:amount>500.00</ban:amount>
+      </ban:PostTransferRequest>
+   </soapenv:Body>
+</soapenv:Envelope>]]></con:request><con:assertion type="SOAP Response" id="4ea62682-46ac-44b4-af50-b6b6e0ef38be" name="SOAP Response"/><con:credentials><con:authType>No Authorization</con:authType></con:credentials><con:jmsConfig JMSDeliveryMode="PERSISTENT"/><con:jmsPropertyConfig/><con:wsaConfig mustUnderstand="NONE" version="200508" action="http://aegis.com/banking/TransactionsPort/PostTransferRequest"/><con:wsrmConfig version="1.2"/></con:request></con:config></con:testStep><con:properties><con:property><con:name>auth_signature</con:name><con:value>Q43N06IDbdDwvHAYZHF05WuOdzqt7pZLztrxnUpTTqg=</con:value></con:property><con:property><con:name>auth_timestamp</con:name><con:value>1776439336</con:value></con:property></con:properties></con:testCase><con:properties/></con:testSuite><con:properties/><con:wssContainer/><con:oAuth2ProfileContainer/><con:oAuth1ProfileContainer/><con:sensitiveInformation/></con:soapui-project>

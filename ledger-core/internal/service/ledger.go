@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"time"
@@ -9,6 +10,8 @@ import (
 	pb "github.com/aegis-banking/ledger-core/internal/pb"
 	"github.com/aegis-banking/ledger-core/internal/queue"
 	"github.com/aegis-banking/ledger-core/internal/repository"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 type LedgerService struct {
 	pb.UnimplementedLedgerServiceServer
@@ -61,4 +64,46 @@ func (s *LedgerService) ExecuteTransfer(ctx context.Context, req *pb.TransferReq
 		Message:       "Transfer completed successfully",
 		TransactionId: txnID,
 	}, nil
+}
+
+func (s *LedgerService) GetAccountBalance(ctx context.Context, req *pb.BalanceRequest) (*pb.BalanceResponse, error) {
+	if req == nil || req.GetAccountId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "account_id is required")
+	}
+
+	bal, owner, lastUpdated, err := s.repo.GetBalance(ctx, req.GetAccountId())
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, status.Error(codes.NotFound, "account not found")
+		}
+		return nil, status.Error(codes.Internal, "failed to fetch balance")
+	}
+
+	return &pb.BalanceResponse{
+		AccountId:   req.GetAccountId(),
+		OwnerName:   owner,
+		Balance:     bal,
+		LastUpdated: lastUpdated,
+	}, nil
+}
+
+func (s *LedgerService) GetAccountHistory(ctx context.Context, req *pb.HistoryRequest) (*pb.HistoryResponse, error) {
+	if req == nil || req.GetAccountId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "account_id is required")
+	}
+
+	limit := req.GetLimit()
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	offset := req.GetOffset()
+	if offset < 0 {
+		offset = 0
+	}
+
+	entries, err := s.repo.GetHistory(ctx, req.GetAccountId(), limit, offset)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to fetch history")
+	}
+	return &pb.HistoryResponse{Entries: entries}, nil
 }

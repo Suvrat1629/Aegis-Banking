@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://aegis.com/banking"
            targetNamespace="http://aegis.com/banking"
            elementFormDefault="qualified">
 
     <xs:element name="PostTransferRequest">
         <xs:complexType>
             <xs:sequence>
+                <xs:element name="transactionId" type="xs:string"/>
                 <xs:element name="from" type="xs:string"/>
                 <xs:element name="to" type="xs:string"/>
                 <xs:element name="amount" type="xs:double"/>
@@ -18,8 +20,55 @@
             <xs:sequence>
                 <xs:element name="success" type="xs:boolean"/>
                 <xs:element name="message" type="xs:string"/>
+                <xs:element name="transactionId" type="xs:string"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>
+
+    <xs:element name="GetAccountBalanceRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="accountId" type="xs:string"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="GetAccountBalanceResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="accountId" type="xs:string"/>
+                <xs:element name="ownerName" type="xs:string"/>
+                <xs:element name="balance" type="xs:double"/>
+                <xs:element name="lastUpdated" type="xs:string"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="GetAccountHistoryRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="accountId" type="xs:string"/>
+                <xs:element name="limit" type="xs:int" default="10"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="GetAccountHistoryResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="entries" type="tns:TransactionEntry" maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:complexType name="TransactionEntry">
+        <xs:sequence>
+            <xs:element name="transactionId" type="xs:string"/>
+            <xs:element name="amount" type="xs:double"/>
+            <xs:element name="entryType" type="xs:string"/>
+            <xs:element name="description" type="xs:string"/>
+            <xs:element name="createdAt" type="xs:string"/>
+        </xs:sequence>
+    </xs:complexType>
 
 </xs:schema>

@@ -26,10 +26,8 @@ public class TransferEndpoint {
     @PayloadRoot(namespace = NAMESPACE_URI, localPart = "PostTransferRequest")
     @ResponsePayload
     public PostTransferResponse handleTransfer(@RequestPayload PostTransferRequest request) {
-        
         ObjectFactory objectFactory = new ObjectFactory();
         PostTransferResponse response = objectFactory.createPostTransferResponse();
-
         try {
             // 1. Extract Metadata from HTTP Transport
             HttpServletRequest httpRequest = null;
@@ -55,9 +53,7 @@ public class TransferEndpoint {
 
             // 3. Map Response
             response.setSuccess(grpcResponse.getSuccess());
-            // Optionally: If your PostTransferResponse has a setTransactionId, use it here:
-            // response.setTransactionId(grpcResponse.getTransactionId());
-            
+            response.setTransactionId(grpcResponse.getTransactionId());
             response.setMessage(grpcResponse.getSuccess()
                     ? "Transaction completed. ID: " + grpcResponse.getTransactionId()
                     : "Transaction failed: " + grpcResponse.getMessage());
@@ -68,5 +64,75 @@ public class TransferEndpoint {
         }
 
         return response;
+    }
+
+    @PayloadRoot(namespace = NAMESPACE_URI, localPart = "GetAccountBalanceRequest")
+    @ResponsePayload
+    public GetAccountBalanceResponse handleGetBalance(@RequestPayload GetAccountBalanceRequest request) {
+
+        ObjectFactory objectFactory = new ObjectFactory();
+        GetAccountBalanceResponse response = objectFactory.createGetAccountBalanceResponse();
+
+        try {
+            Ledger.BalanceResponse grpcResp = ledgerGrpcClient.getAccountBalance(request.getAccountId());
+
+            response.setAccountId(grpcResp.getAccountId());
+            response.setOwnerName(grpcResp.getOwnerName());
+            response.setBalance(grpcResp.getBalance());
+            response.setLastUpdated(grpcResp.getLastUpdated());
+
+        } catch (Exception e) {
+            response.setAccountId(request.getAccountId());
+            response.setOwnerName("");
+            response.setBalance(0.0);
+            response.setLastUpdated("");
+            // TODO: return a SOAP fault depending on requirements
+        }
+
+        return response;
+    }
+
+    @PayloadRoot(namespace = NAMESPACE_URI, localPart = "GetAccountHistoryRequest")
+    @ResponsePayload
+    public GetAccountHistoryResponse handleGetHistory(@RequestPayload GetAccountHistoryRequest request) {
+
+        ObjectFactory objectFactory = new ObjectFactory();
+        GetAccountHistoryResponse response = objectFactory.createGetAccountHistoryResponse();
+
+        try {
+        int limit = request.getLimit();
+        if (limit <= 0) {
+        limit = 10;
+        }
+        Ledger.HistoryResponse grpcResp = ledgerGrpcClient.getAccountHistory(
+            request.getAccountId(),
+            limit
+        );
+
+            // Map each gRPC TransactionEntry to the JAXB TransactionEntry
+            for (Ledger.TransactionEntry ge : grpcResp.getEntriesList()) {
+                TransactionEntry je = objectFactory.createTransactionEntry();
+                je.setTransactionId(ge.getTransactionId());
+                je.setAmount(ge.getAmount());
+                je.setEntryType(ge.getEntryType());
+                je.setDescription(ge.getDescription());
+                je.setCreatedAt(ge.getCreatedAt());
+                response.getEntries().add(je);
+            }
+
+        } catch (Exception e) {
+            // on error return empty history for now; consider SOAP fault
+        }
+
+        return response;
+    }
+
+    // Helper to get HTTP request from Spring-WS context
+    private HttpServletRequest getHttpServletRequest() {
+        var connection = TransportContextHolder.getTransportContext().getConnection();
+        if (connection instanceof HttpServletConnection httpConn) {
+            return httpConn.getHttpServletRequest();
+        }
+        return null;
     }
 }
