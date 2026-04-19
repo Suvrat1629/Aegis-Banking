@@ -61,3 +61,20 @@ CREATE INDEX IF NOT EXISTS idx_transaction_headers_created_at
 UPDATE accounts 
 SET last_updated = NOW() 
 WHERE last_updated IS NULL;
+
+CREATE TABLE IF NOT EXISTS outbox (
+    id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    aggregate_type   VARCHAR(50) NOT NULL,        -- "TRANSFER"
+    aggregate_id     VARCHAR(50) NOT NULL,        -- transaction_id
+    event_type       VARCHAR(100) NOT NULL,
+    payload          JSONB NOT NULL,
+    status           VARCHAR(20) DEFAULT 'PENDING',
+    retry_count      INT DEFAULT 0,
+    created_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    processed_at     TIMESTAMP WITH TIME ZONE,
+    next_attempt_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_pending 
+    ON outbox(status, next_attempt_at) 
+    WHERE status = 'PENDING';

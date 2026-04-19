@@ -119,6 +119,30 @@ func (r *AccountRepository) ExecuteTransfer(ctx context.Context, transactionID, 
 		return fmt.Errorf("failed to save audit log: %w", err)
 	}
 
+	auditPayload := map[string]interface{}{
+		"transaction_id": transactionID,
+		"from_account":	  from,
+		"to_account":	  to,
+		"amount":		  amount,
+		"device_id":	  deviceID,
+		"ip_address":	  ipAddress,
+		"user_agent":	  userAgent,
+		"status":		  "COMPLETED",
+	}
+
+	payloadBytes, err := json.Marshal(auditPayload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal outbox payload: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx,
+		`INSERT INTO outbox (aggregate_type, aggregate_id, event_type, payload)
+    	VALUES ('TRANSFER', $1, 'TRANSFER_COMPLETED', $2)`, transactionID, payloadBytes)
+
+	if err != nil {
+		return fmt.Errorf("failed to insert into outbox: %w", err)
+	}
+
 	// Commit everything
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)

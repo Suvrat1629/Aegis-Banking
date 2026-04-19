@@ -19,6 +19,7 @@ import (
 	"github.com/aegis-banking/ledger-core/internal/queue"
 	"github.com/aegis-banking/ledger-core/internal/repository"
 	"github.com/aegis-banking/ledger-core/internal/service"
+	"github.com/aegis-banking/ledger-core/internal/worker"
 )
 
 type Config struct {
@@ -70,7 +71,7 @@ func main() {
 	repo := repository.NewAccountRepository(db)
 	ledgerSvc := service.NewLedgerService(repo, producer)
 
-	lis, err := net.Listen("tcp", ":" + cfg.GRPCPort)
+	lis, err := net.Listen("tcp", ":"+cfg.GRPCPort)
 	if err != nil {
 		log.Fatalf("Failed to listen :%v", err)
 	}
@@ -78,12 +79,22 @@ func main() {
 	grpcServer := grpc.NewServer()
 	pb.RegisterLedgerServiceServer(grpcServer, ledgerSvc)
 
-	log.Println("Ledger gRPC Server started on :50051")
-	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("gRPC server failed: %v", err)
+	// Create a cancellable context for background workers (outbox relay)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	if producer != nil {
+		relay := worker.NewOutboxRelay(db, producer)
+		go relay.Start(ctx)
 	}
 
-	waitForShutdown(grpcServer, producer)
+	log.Printf("Ledger gRPC Server started on :%s", cfg.GRPCPort)
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatalf("gRPC server failed: %v", err)
+		}
+	}()
+
+	waitForShutdown(grpcServer, producer, cancel)
 }
 
 func loadConfig() Config {
@@ -116,12 +127,16 @@ func waitForDB(db *sql.DB) error {
 	return db.Ping()
 }
 
-func waitForShutdown(grpcServer *grpc.Server, producer *queue.RabbitMQProducer) {
+func waitForShutdown(grpcServer *grpc.Server, producer *queue.RabbitMQProducer, cancel context.CancelFunc) {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
 	<-quit
 	log.Println("Shutting down gRPC server")
+
+	if cancel != nil {
+		cancel()
+	}
 
 	if producer != nil{
 		producer.Close()

@@ -77,6 +77,31 @@ func (p *RabbitMQProducer) PublishAudit(txnID, from, to string, amount float64) 
 	return nil
 }
 
+func (p *RabbitMQProducer) PublishAuditFromPayload(payload []byte) error {
+	if p == nil || p.channel == nil {
+		return fmt.Errorf("rabbitmq producer not initialized")
+	}
+
+	err := p.channel.PublishWithContext(
+		context.Background(),
+		"",
+		AuditQueueName,
+		false,
+		false,
+		amqp.Publishing{
+			DeliveryMode: amqp.Persistent,
+			ContentType:  "application/json",
+			Body:         payload,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to publish raw audit payload: %w", err)
+	}
+
+	log.Printf("Audit published (raw payload), %d bytes", len(payload))
+	return nil
+}
+
 func (p *RabbitMQProducer) Close() {
 	if p.channel != nil {
 		p.channel.Close()
