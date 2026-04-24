@@ -68,4 +68,31 @@
          <ban:amount>500.00</ban:amount>
       </ban:PostTransferRequest>
    </soapenv:Body>
-</soapenv:Envelope>]]></con:request><con:assertion type="SOAP Response" id="4ea62682-46ac-44b4-af50-b6b6e0ef38be" name="SOAP Response"/><con:credentials><con:authType>No Authorization</con:authType></con:credentials><con:jmsConfig JMSDeliveryMode="PERSISTENT"/><con:jmsPropertyConfig/><con:wsaConfig mustUnderstand="NONE" version="200508" action="http://aegis.com/banking/TransactionsPort/PostTransferRequest"/><con:wsrmConfig version="1.2"/></con:request></con:config></con:testStep><con:properties><con:property><con:name>auth_signature</con:name><con:value>Q43N06IDbdDwvHAYZHF05WuOdzqt7pZLztrxnUpTTqg=</con:value></con:property><con:property><con:name>auth_timestamp</con:name><con:value>1776439336</con:value></con:property></con:properties></con:testCase><con:properties/></con:testSuite><con:properties/><con:wssContainer/><con:oAuth2ProfileContainer/><con:oAuth1ProfileContainer/><con:sensitiveInformation/></con:soapui-project>
+</soapenv:Envelope>]]></con:request><con:assertion type="SOAP Response" id="4ea62682-46ac-44b4-af50-b6b6e0ef38be" name="SOAP Response"/><con:credentials><con:authType>No Authorization</con:authType></con:credentials><con:jmsConfig JMSDeliveryMode="PERSISTENT"/><con:jmsPropertyConfig/><con:wsaConfig mustUnderstand="NONE" version="200508" action="http://aegis.com/banking/TransactionsPort/PostTransferRequest"/><con:wsrmConfig version="1.2"/></con:request></con:config></con:testStep><con:properties><con:property><con:name>auth_signature</con:name><con:value>Q43N06IDbdDwvHAYZHF05WuOdzqt7pZLztrxnUpTTqg=</con:value></con:property><con:property><con:name>auth_timestamp</con:name><con:value>1776439336</con:value></con:property></con:properties></con:testCase><con:testCase id="54631dc9-7f62-4d15-b6e8-ce8a99ac8e83" failOnError="true" failTestCaseOnErrors="true" keepSession="false" maxResults="0" name="Verify Flow" searchProperties="true"><con:settings/><con:testStep type="request" name="GetInitialBalance" id="7075bded-add6-4748-a264-012fb47dd652"><con:settings/><con:config xsi:type="con:RequestStep" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><con:interface>TransactionsPortSoap11</con:interface><con:operation>PostTransfer</con:operation><con:request name="GetInitialBalance" id="ce210a0d-1973-4236-974d-262f662416d8"><con:settings><con:setting id="com.eviware.soapui.impl.wsdl.WsdlRequest@request-headers">&lt;xml-fragment/></con:setting></con:settings><con:encoding>UTF-8</con:encoding><con:endpoint>http://localhost:8080/ws</con:endpoint><con:request><![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" 
+                  xmlns:ban="http://aegis.com/banking">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <ban:PostTransferRequest>
+         <ban:from>acc_123</ban:from>
+         <ban:to>acc_456</ban:to>
+         <ban:amount>100.00</ban:amount>
+      </ban:PostTransferRequest>
+   </soapenv:Body>
+</soapenv:Envelope>]]></con:request><con:assertion type="SOAP Response" id="894878f1-7c73-4cde-894d-1d9a84d55387"/><con:credentials><con:authType>No Authorization</con:authType></con:credentials><con:jmsConfig JMSDeliveryMode="PERSISTENT"/><con:jmsPropertyConfig/><con:wsaConfig mustUnderstand="NONE" version="200508"/><con:wsrmConfig version="1.2"/></con:request></con:config></con:testStep><con:testStep type="request" name="ExecuteTransfer" id="33d5a4b8-a7a0-443f-9be7-8912fa54f053"><con:settings/><con:config xsi:type="con:RequestStep" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><con:interface>TransactionsPortSoap11</con:interface><con:operation>PostTransfer</con:operation><con:request name="ExecuteTransfer" id="0f46e412-9e86-40c4-9ae9-521e00b5d768"><con:settings><con:setting id="com.eviware.soapui.impl.wsdl.WsdlRequest@request-headers">&lt;xml-fragment/></con:setting></con:settings><con:encoding>UTF-8</con:encoding><con:endpoint>http://localhost:8080/ws</con:endpoint><con:request><![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" 
+                  xmlns:ban="http://aegis.com/banking">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <ban:GetAccountBalanceRequest>
+         <ban:accountId>acc_123</ban:accountId>
+      </ban:GetAccountBalanceRequest>
+   </soapenv:Body>
+</soapenv:Envelope>]]></con:request><con:assertion type="SOAP Response" id="c1669d48-8ee4-40ff-8825-f0ea5a622270"/><con:credentials><con:authType>No Authorization</con:authType></con:credentials><con:jmsConfig JMSDeliveryMode="PERSISTENT"/><con:jmsPropertyConfig/><con:wsaConfig mustUnderstand="NONE" version="200508"/><con:wsrmConfig version="1.2"/></con:request></con:config></con:testStep><con:testStep type="request" name="GetHistory" id="c97dc303-43d3-4dc5-80d6-0e86eff2b54e"><con:settings/><con:config xsi:type="con:RequestStep" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><con:interface>TransactionsPortSoap11</con:interface><con:operation>PostTransfer</con:operation><con:request name="GetHistory" id="76a10dc7-ab84-4df7-88e1-1c9290d9f585"><con:settings><con:setting id="com.eviware.soapui.impl.wsdl.WsdlRequest@request-headers">&lt;xml-fragment/></con:setting></con:settings><con:encoding>UTF-8</con:encoding><con:endpoint>http://localhost:8080/ws</con:endpoint><con:request><![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" 
+                  xmlns:ban="http://aegis.com/banking">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <ban:GetAccountHistoryRequest>
+         <ban:accountId>acc_123</ban:accountId>
+         <ban:limit>5</ban:limit>
+      </ban:GetAccountHistoryRequest>
+   </soapenv:Body>
+</soapenv:Envelope>]]></con:request><con:assertion type="SOAP Response" id="c4bd55af-5721-46a5-b2ab-685d32c3ce4e"/><con:credentials><con:authType>No Authorization</con:authType></con:credentials><con:jmsConfig JMSDeliveryMode="PERSISTENT"/><con:jmsPropertyConfig/><con:wsaConfig mustUnderstand="NONE" version="200508"/><con:wsrmConfig version="1.2"/></con:request></con:config></con:testStep><con:properties/></con:testCase><con:properties/></con:testSuite><con:properties/><con:wssContainer/><con:oAuth2ProfileContainer/><con:oAuth1ProfileContainer/><con:sensitiveInformation/></con:soapui-project>

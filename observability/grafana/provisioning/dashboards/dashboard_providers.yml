@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: 'Aegis Dashboards'
+    orgId: 1
+    folder: 'Banking'  # This will create a 'Banking' folder in your Grafana UI
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards # This must match the volume in docker-compose

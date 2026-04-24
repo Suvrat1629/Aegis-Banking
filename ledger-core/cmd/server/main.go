@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,8 +14,11 @@ import (
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 
+	"github.com/aegis-banking/ledger-core/internal/observability"
 	pb "github.com/aegis-banking/ledger-core/internal/pb"
 	"github.com/aegis-banking/ledger-core/internal/queue"
 	"github.com/aegis-banking/ledger-core/internal/repository"
@@ -23,13 +27,14 @@ import (
 )
 
 type Config struct {
-	DBHost      string
-	DBPort      string
-	DBUser      string
-	DBPassword  string
-	DBName      string
-	GRPCPort    string
-	RabbitMQURL string
+	DBHost       string
+	DBPort       string
+	DBUser       string
+	DBPassword   string
+	DBName       string
+	GRPCPort     string
+	RabbitMQURL  string
+	OTELEndpoint string
 }
 
 func main() {
@@ -44,6 +49,24 @@ func main() {
 	}
 
 	cfg := loadConfig()
+
+	// Initialize OpenTelemetry Tracing
+	shutdown, err := observability.InitTracer("aegis-ledger", cfg.OTELEndpoint)
+	if err != nil {
+		log.Printf("Warning: Failed to initialize tracer: %v", err)
+	} else {
+		defer shutdown()
+		log.Println("✅ OpenTelemetry tracing initialized")
+	}
+
+	// Start Prometheus metrics endpoint
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		log.Println("📊 Prometheus metrics available at :2113/metrics")
+		if err := http.ListenAndServe(":2113", nil); err != nil {
+			log.Fatalf("Failed to start metrics server: %v", err)
+		}
+	}()
 
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName)
@@ -76,7 +99,10 @@ func main() {
 		log.Fatalf("Failed to listen :%v", err)
 	}
 
-	grpcServer := grpc.NewServer()
+	// Create gRPC server with OpenTelemetry stats handler
+	grpcServer := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+	)
 	pb.RegisterLedgerServiceServer(grpcServer, ledgerSvc)
 
 	// Create a cancellable context for background workers (outbox relay)
@@ -99,13 +125,14 @@ func main() {
 
 func loadConfig() Config {
 	return Config{
-		DBHost:     getEnv("DB_HOST", "aegis-db"),
-		DBPort:     getEnv("DB_PORT", "5432"),
-		DBUser:     getEnv("DB_USER", "user"),
-		DBPassword: getEnv("DB_PASSWORD", "password"), // still fallback for local dev
-		DBName:     getEnv("DB_NAME", "aegis_db"),
-		GRPCPort:   getEnv("GRPC_PORT", "50051"),
-		RabbitMQURL: getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/"),
+		DBHost:       getEnv("DB_HOST", "aegis-db"),
+		DBPort:       getEnv("DB_PORT", "5432"),
+		DBUser:       getEnv("DB_USER", "user"),
+		DBPassword:   getEnv("DB_PASSWORD", "password"),
+		DBName:       getEnv("DB_NAME", "aegis_db"),
+		GRPCPort:     getEnv("GRPC_PORT", "50051"),
+		RabbitMQURL:  getEnv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/"),
+		OTELEndpoint: getEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "otel-collector:4317"),
 	}
 }
 
@@ -138,7 +165,7 @@ func waitForShutdown(grpcServer *grpc.Server, producer *queue.RabbitMQProducer, 
 		cancel()
 	}
 
-	if producer != nil{
+	if producer != nil {
 		producer.Close()
 	}
 
@@ -152,7 +179,7 @@ func waitForShutdown(grpcServer *grpc.Server, producer *queue.RabbitMQProducer, 
 	}()
 
 	select {
-	case <- done:
+	case <-done:
 		log.Println("gRPC server stopped gracefully")
 	case <-ctx.Done():
 		log.Println("Timeout: forcing gRPC server stop")

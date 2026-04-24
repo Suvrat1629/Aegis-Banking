@@ -8,10 +8,31 @@ server:
 grpc:
   client:
     ledger:
-      address: static://localhost:50051
+      address: static://ledger-core:50051
       negotiation-type: plaintext
           
 logging:
   level:
     com.aegis.gateway: DEBUG
     org.springframework.ws: INFO
+
+management:
+  server:
+    port: 2112
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,metrics
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: aegis-gateway
+
+otel:
+  exporter:
+    otlp:
+      # When running the gateway locally (./gradlew bootRun), use localhost:4318 which maps to collector's gRPC receiver
+      # Use Jaeger's OTLP/gRPC port when running locally so bootRun can export directly
+      endpoint: http://localhost:4317

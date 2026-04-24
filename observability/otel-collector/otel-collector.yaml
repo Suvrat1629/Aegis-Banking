@@ -1,0 +1,41 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+  
+  tail_sampling:
+    decision_wait: 5s 
+    num_traces: 100
+    policies:
+      - name: keep-banking-transactions
+        type: string_attribute
+        string_attribute:
+          key: transaction.id
+          values: 
+            - ".+" 
+          enabled_regex_matching: true
+
+exporters:
+  otlp: # send to Jaeger collector via OTLP
+    endpoint: "jaeger:4317"
+    tls:
+      insecure: true
+  debug: # Replacing the deprecated 'logging' exporter
+    verbosity: basic
+
+service:
+  telemetry:
+    metrics:
+      level: none
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [tail_sampling, batch]
+      exporters: [otlp, debug]

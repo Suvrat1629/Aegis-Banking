@@ -41,6 +41,16 @@ dependencies {
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 
+	// Prometheus Metrics
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+	// OpenTelemetry core - keep versions aligned to a recent stable release
+	implementation 'io.opentelemetry:opentelemetry-api:1.55.0'
+	implementation 'io.opentelemetry:opentelemetry-sdk:1.55.0'
+	implementation 'io.opentelemetry:opentelemetry-exporter-otlp:1.55.0'
+	// Note: removed semconv and auto-instrumentation deps to avoid version conflicts with transitive deps
+
     // Test
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-amqp-test'
