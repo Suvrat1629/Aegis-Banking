@@ -6,6 +6,7 @@ import (
     "log"
     "time"
 
+    "github.com/aegis-banking/ledger-core/internal/observability"
     "github.com/aegis-banking/ledger-core/internal/queue"
 )
 
@@ -90,7 +91,7 @@ func (r *OutboxRelay) processBatch(ctx context.Context) {
         // Publish raw payload
         err := r.publisher.PublishAuditFromPayload(payload)
         if err == nil {
-            // Success
+            observability.RabbitMQPublishTotal.Inc()
             if _, err := tx.ExecContext(ctx, `
                 UPDATE outbox
                 SET status = 'PROCESSED', processed_at = NOW()
@@ -98,6 +99,7 @@ func (r *OutboxRelay) processBatch(ctx context.Context) {
                 log.Printf("OutboxRelay: failed to mark processed id=%s: %v", id, err)
             }
         } else {
+            observability.RabbitMQPublishFailures.Inc()
             log.Printf("OutboxRelay: publish failed for id=%s: %v", id, err)
             if retryCount >= r.maxRetries {
                 if _, err := tx.ExecContext(ctx, `UPDATE outbox SET status = 'FAILED' WHERE id = $1`, id); err != nil {

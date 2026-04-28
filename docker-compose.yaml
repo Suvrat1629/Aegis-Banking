@@ -12,6 +12,13 @@ services:
       - "5432:5432"
     volumes:
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d aegis_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - aegis-network
 
   pgadmin:
     image: dpage/pgadmin4
@@ -22,7 +29,10 @@ services:
     ports:
       - "5050:80"
     depends_on:
-      - aegis-db
+      aegis-db:
+        condition: service_healthy
+    networks:
+      - aegis-network
 
   rabbitmq:
     image: rabbitmq:3-management
@@ -33,6 +43,14 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - aegis-network
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
@@ -43,6 +61,8 @@ services:
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     ports:
       - "9200:9200"
+    networks:
+      - aegis-network
 
   logstash:
     image: docker.elastic.co/logstash/logstash:8.12.0
@@ -53,8 +73,12 @@ services:
     volumes:
       - ./logstash/pipeline:/usr/share/logstash/pipeline
     depends_on:
-      - elasticsearch
-      - rabbitmq
+      elasticsearch:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - aegis-network
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.12.0
@@ -65,6 +89,8 @@ services:
       - "5601:5601"
     depends_on:
       - elasticsearch
+    networks:
+      - aegis-network
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
@@ -73,14 +99,16 @@ services:
     volumes:
       - ./observability/otel-collector/otel-collector.yaml:/etc/otel-collector-config.yaml:ro
     ports:
-      # OTLP receivers are available to other containers on the Docker network; avoid binding them to host to prevent port conflicts
+      # gRPC OTLP receiver exposed on host as 4318 to avoid conflicting with Jaeger's host port 4317
       - "4318:4317"
-      - "8888:8888"   # Prometheus metrics about the collector itself
+      - "8888:8888"   # Collector self-metrics (Prometheus)
       - "13133:13133" # Health check
     depends_on:
       - jaeger
     restart: unless-stopped
-    
+    networks:
+      - aegis-network
+
   jaeger:
     image: jaegertracing/all-in-one:1.49
     container_name: aegis-jaeger
@@ -88,9 +116,60 @@ services:
       - COLLECTOR_ZIPKIN_HOST_PORT=:9411
     ports:
       - "16686:16686" # Jaeger UI
-      - "4317:4317"   # OTLP/gRPC receiver for Jaeger collector
+      - "4317:4317"   # OTLP/gRPC (used by apps running on the host for direct export)
       - "9411:9411"   # Zipkin
     restart: unless-stopped
+    networks:
+      - aegis-network
+
+  ledger-core:
+    build:
+      context: ./ledger-core
+      dockerfile: Dockerfile
+    container_name: aegis-ledger-core
+    ports:
+      - "50051:50051"
+      - "2113:2113"
+    environment:
+      - DB_HOST=aegis-db
+      - DB_PORT=5432
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - DB_NAME=aegis_db
+      - DB_SSLMODE=disable
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
+    depends_on:
+      aegis-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:2113/metrics > /dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - aegis-network
+
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    container_name: aegis-gateway
+    ports:
+      - "8080:8080"
+      - "2112:2112"
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    depends_on:
+      ledger-core:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - aegis-network
 
   prometheus:
     image: prom/prometheus:latest
@@ -104,6 +183,8 @@ services:
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - aegis-network
 
   grafana:
     image: grafana/grafana:latest
@@ -122,6 +203,12 @@ services:
       - prometheus
       - jaeger
     restart: unless-stopped
+    networks:
+      - aegis-network
 
 volumes:
   grafana-storage:
+
+networks:
+  aegis-network:
+    driver: bridge

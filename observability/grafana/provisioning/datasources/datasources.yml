@@ -10,8 +10,9 @@ datasources:
 
   - name: Jaeger
     type: jaeger
+    uid: jaeger-aegis
     access: proxy
-    url: http://jaeger:16686
+    url: http://aegis-jaeger:16686
     isDefault: false
     version: 1
     editable: false

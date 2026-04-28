@@ -1,0 +1,187 @@
+{
+  "annotations": {"list": []},
+  "description": "Distributed trace explorer for the Aegis Banking system — service dependency map, live trace search, and trace detail drill-down.",
+  "editable": true,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "title": "Aegis Overview (Metrics)",
+      "type": "link",
+      "url": "/d/aegis-banking-overview",
+      "targetBlank": false,
+      "icon": "dashboard"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "tags": ["aegis", "banking", "tracing"],
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Aegis Banking — Jaeger Traces",
+  "uid": "aegis-jaeger-traces",
+  "version": 1,
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "jaeger_datasource",
+        "options": [],
+        "query": "jaeger",
+        "refresh": 1,
+        "type": "datasource",
+        "label": "Jaeger"
+      },
+      {
+        "current": {"selected": false, "text": "", "value": ""},
+        "description": "Paste a Trace ID from the search panels below to inspect the full trace",
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "traceId",
+        "options": [],
+        "query": "",
+        "type": "textbox",
+        "label": "Trace ID"
+      }
+    ]
+  },
+  "panels": [
+
+    {
+      "id": 1,
+      "type": "nodeGraph",
+      "title": "Service Dependency Map",
+      "description": "Live service graph derived from Jaeger span data — shows which services call which.",
+      "datasource": {"type": "jaeger", "uid": "${jaeger_datasource}"},
+      "gridPos": {"h": 14, "w": 24, "x": 0, "y": 0},
+      "targets": [
+        {
+          "datasource": {"type": "jaeger", "uid": "${jaeger_datasource}"},
+          "queryType": "dependencyGraph",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "nodes": {
+          "mainStatUnit": "short",
+          "secondaryStatUnit": "short"
+        },
+        "edges": {
+          "mainStatUnit": "short"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+
+    {
+      "id": 2,
+      "type": "row",
+      "title": "Trace Search",
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 14},
+      "panels": []
+    },
+
+    {
+      "id": 3,
+      "type": "traces",
+      "title": "Gateway Traces (aegis-gateway)",
+      "description": "Recent traces entering through the SOAP/gRPC Gateway. Click any row to expand the full span waterfall.",
+      "datasource": {"type": "jaeger", "uid": "${jaeger_datasource}"},
+      "gridPos": {"h": 18, "w": 12, "x": 0, "y": 15},
+      "targets": [
+        {
+          "datasource": {"type": "jaeger", "uid": "${jaeger_datasource}"},
+          "queryType": "search",
+          "service": "aegis-gateway",
+          "operation": "",
+          "tags": "",
+          "minDuration": "",
+          "maxDuration": "",
+          "limit": 20,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "enableNodeGraph": true,
+        "dedupStrategy": "none"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+
+    {
+      "id": 4,
+      "type": "traces",
+      "title": "Ledger Traces (aegis-ledger)",
+      "description": "Recent traces handled by the Ledger-Core gRPC service. Shows DB and outbox operations.",
+      "datasource": {"type": "jaeger", "uid": "${jaeger_datasource}"},
+      "gridPos": {"h": 18, "w": 12, "x": 12, "y": 15},
+      "targets": [
+        {
+          "datasource": {"type": "jaeger", "uid": "${jaeger_datasource}"},
+          "queryType": "search",
+          "service": "aegis-ledger",
+          "operation": "",
+          "tags": "",
+          "minDuration": "",
+          "maxDuration": "",
+          "limit": 20,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "enableNodeGraph": true,
+        "dedupStrategy": "none"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+
+    {
+      "id": 5,
+      "type": "row",
+      "title": "Trace Detail Lookup",
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 33},
+      "panels": []
+    },
+
+    {
+      "id": 6,
+      "type": "traces",
+      "title": "Trace Detail — ${traceId}",
+      "description": "Paste a Trace ID into the 'Trace ID' variable at the top of the page to render the full span waterfall and embedded node graph here.",
+      "datasource": {"type": "jaeger", "uid": "${jaeger_datasource}"},
+      "gridPos": {"h": 16, "w": 24, "x": 0, "y": 34},
+      "targets": [
+        {
+          "datasource": {"type": "jaeger", "uid": "${jaeger_datasource}"},
+          "queryType": "traceId",
+          "query": "${traceId}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "enableNodeGraph": true,
+        "dedupStrategy": "none"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    }
+
+  ]
+}
