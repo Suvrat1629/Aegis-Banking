@@ -49,6 +49,8 @@ func (p *RabbitMQProducer) PublishAudit(txnID, from, to string, amount float64) 
 		Timestamp:     time.Now(),
 		Message:       "Transfer completed successfully",
 		Currency:      "INR",
+		EventType:     "TRANSFER_COMPLETED",
+		AggregateType: "TRANSFER",
 	}
 
 	body, err := json.Marshal(event)

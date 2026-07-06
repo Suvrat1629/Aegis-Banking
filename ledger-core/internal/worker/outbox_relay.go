@@ -3,6 +3,7 @@ package worker
 import (
     "context"
     "database/sql"
+    "encoding/json"
     "log"
     "time"
 
@@ -48,7 +49,7 @@ func (r *OutboxRelay) processBatch(ctx context.Context) {
     defer tx.Rollback()
 
     rows, err := tx.QueryContext(ctx, `
-        SELECT id, payload, retry_count
+        SELECT id, payload, retry_count, event_type, aggregate_type, aggregate_id
         FROM outbox
         WHERE status = 'PENDING'
           AND next_attempt_at <= NOW()
@@ -62,9 +63,12 @@ func (r *OutboxRelay) processBatch(ctx context.Context) {
     }
 
     type outboxRow struct {
-        id         string
-        payload    []byte
-        retryCount int
+        id            string
+        payload       []byte
+        retryCount    int
+        eventType     string
+        aggregateType string
+        aggregateID   string
     }
 
     var batch []outboxRow
@@ -72,12 +76,16 @@ func (r *OutboxRelay) processBatch(ctx context.Context) {
         var id string
         var payload []byte
         var retryCount int
+        var eventType, aggregateType, aggregateID string
 
-        if err := rows.Scan(&id, &payload, &retryCount); err != nil {
+        if err := rows.Scan(&id, &payload, &retryCount, &eventType, &aggregateType, &aggregateID); err != nil {
             log.Printf("OutboxRelay: row scan failed: %v", err)
             continue
         }
-        batch = append(batch, outboxRow{id: id, payload: payload, retryCount: retryCount})
+        batch = append(batch, outboxRow{
+            id: id, payload: payload, retryCount: retryCount,
+            eventType: eventType, aggregateType: aggregateType, aggregateID: aggregateID,
+        })
     }
 
     // Close rows before executing additional queries on the same transaction/connection
@@ -85,11 +93,24 @@ func (r *OutboxRelay) processBatch(ctx context.Context) {
 
     for _, item := range batch {
         id := item.id
-        payload := item.payload
         retryCount := item.retryCount
 
-        // Publish raw payload
-        err := r.publisher.PublishAuditFromPayload(payload)
+        var payloadFields map[string]any
+        if err := json.Unmarshal(item.payload, &payloadFields); err != nil {
+            log.Printf("OutboxRelay: failed to parse payload for id=%s: %v", id, err)
+            continue
+        }
+        payloadFields["event_type"] = item.eventType
+        payloadFields["aggregate_type"] = item.aggregateType
+        payloadFields["aggregate_id"] = item.aggregateID
+
+        enrichedPayload, err := json.Marshal(payloadFields)
+        if err != nil {
+            log.Printf("OutboxRelay: failed to build enriched payload for id=%s: %v", id, err)
+            continue
+        }
+
+        err = r.publisher.PublishAuditFromPayload(enrichedPayload)
         if err == nil {
             observability.RabbitMQPublishTotal.Inc()
             if _, err := tx.ExecContext(ctx, `

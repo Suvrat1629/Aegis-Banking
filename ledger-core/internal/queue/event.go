@@ -11,4 +11,6 @@ type AuditEvent struct {
 	Timestamp     time.Time `json:"timestamp"`
 	Message       string    `json:"message,omitempty"`
 	Currency      string    `json:"currency,omitempty"`
+	EventType     string    `json:"event_type"`
+	AggregateType string    `json:"aggregate_type"`
 }

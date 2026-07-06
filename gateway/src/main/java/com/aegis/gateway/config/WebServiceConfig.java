@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.ws.config.annotation.EnableWs;
-import org.springframework.ws.config.annotation.WsConfigurer; // Use the interface
+import org.springframework.ws.config.annotation.WsConfigurer;
 import org.springframework.ws.transport.http.MessageDispatcherServlet;
 import org.springframework.ws.wsdl.wsdl11.DefaultWsdl11Definition;
 import org.springframework.xml.xsd.SimpleXsdSchema;
@@ -17,7 +17,7 @@ import org.springframework.xml.xsd.XsdSchema;
 public class WebServiceConfig implements WsConfigurer {
 
     public WebServiceConfig() {
-        System.out.println("AEGIG-LOG: SOAP CONFIG LOADED SUCCESSFULLY 🚀🚀🚀");
+        System.out.println("AEGIG-LOG: SOAP CONFIG LOADED SUCCESSFULLY");
     }
 
     @Bean

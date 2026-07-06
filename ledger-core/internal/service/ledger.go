@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
+	"github.com/aegis-banking/ledger-core/internal/observability"
 	pb "github.com/aegis-banking/ledger-core/internal/pb"
 	"github.com/aegis-banking/ledger-core/internal/queue"
 	"github.com/aegis-banking/ledger-core/internal/repository"
@@ -27,7 +29,14 @@ func NewLedgerService(repo *repository.AccountRepository, producer *queue.Rabbit
 }
 
 func (s *LedgerService) ExecuteTransfer(ctx context.Context, req *pb.TransferRequest) (*pb.TransferResponse, error) {
+	observability.TransferRequestsTotal.Inc()
+	start := time.Now()
+	defer func() {
+		observability.TransferDuration.Observe(time.Since(start).Seconds())
+	}()
+
 	if req.Amount <= 0 {
+		observability.TransferFailureTotal.WithLabelValues("invalid_amount").Inc()
 		return &pb.TransferResponse{
 			Success:       false,
 			Message:       "amount must be greater than zero",
@@ -43,6 +52,7 @@ func (s *LedgerService) ExecuteTransfer(ctx context.Context, req *pb.TransferReq
 	err := s.repo.ExecuteTransfer(ctx, txnID, req.GetFromAccount(), req.GetToAccount(), req.GetAmount(), req.GetDeviceId(), req.GetIpAddress(), req.GetUserAgent())
 	if err != nil {
 		log.Printf("Transfer failed: %v", err)
+		observability.TransferFailureTotal.WithLabelValues(classifyTransferError(err)).Inc()
 		return &pb.TransferResponse{
 			Success:       false,
 			Message:       err.Error(),
@@ -59,11 +69,28 @@ func (s *LedgerService) ExecuteTransfer(ctx context.Context, req *pb.TransferReq
 
 	log.Printf("✅ Transfer successful: %s → %s | ₹%.2f | txn=%s", req.GetFromAccount(), req.GetToAccount(), req.GetAmount(), txnID)
 
+	observability.TransferSuccessTotal.Inc()
+
 	return &pb.TransferResponse{
 		Success:       true,
 		Message:       "Transfer completed successfully",
 		TransactionId: txnID,
 	}, nil
+}
+
+// classifyTransferError buckets repository errors into a small, bounded set of
+// Prometheus label values. The raw error text (which embeds account IDs/amounts)
+// must never be used as a label value directly — that would blow up cardinality.
+func classifyTransferError(err error) string {
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "insufficient balance"):
+		return "insufficient_balance"
+	case strings.Contains(msg, "account not found"):
+		return "account_not_found"
+	default:
+		return "internal_error"
+	}
 }
 
 func (s *LedgerService) GetAccountBalance(ctx context.Context, req *pb.BalanceRequest) (*pb.BalanceResponse, error) {

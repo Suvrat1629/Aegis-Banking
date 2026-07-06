@@ -113,6 +113,20 @@ func main() {
 		go relay.Start(ctx)
 	}
 
+	// Periodically report DB connection pool size to Prometheus
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				observability.DatabaseConnectionPoolSize.Set(float64(db.Stats().OpenConnections))
+			}
+		}
+	}()
+
 	log.Printf("Ledger gRPC Server started on :%s", cfg.GRPCPort)
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
