@@ -13,11 +13,11 @@ import (
 
 type OutboxRelay struct {
     db         *sql.DB
-    publisher  *queue.RabbitMQProducer
+    publisher  *queue.KafkaProducer
     maxRetries int
 }
 
-func NewOutboxRelay(db *sql.DB, publisher *queue.RabbitMQProducer) *OutboxRelay {
+func NewOutboxRelay(db *sql.DB, publisher *queue.KafkaProducer) *OutboxRelay {
     return &OutboxRelay{
         db:         db,
         publisher:  publisher,
@@ -112,7 +112,7 @@ func (r *OutboxRelay) processBatch(ctx context.Context) {
 
         err = r.publisher.PublishAuditFromPayload(enrichedPayload)
         if err == nil {
-            observability.RabbitMQPublishTotal.Inc()
+            observability.KafkaPublishTotal.Inc()
             if _, err := tx.ExecContext(ctx, `
                 UPDATE outbox
                 SET status = 'PROCESSED', processed_at = NOW()
@@ -120,7 +120,7 @@ func (r *OutboxRelay) processBatch(ctx context.Context) {
                 log.Printf("OutboxRelay: failed to mark processed id=%s: %v", id, err)
             }
         } else {
-            observability.RabbitMQPublishFailures.Inc()
+            observability.KafkaPublishFailures.Inc()
             log.Printf("OutboxRelay: publish failed for id=%s: %v", id, err)
             if retryCount >= r.maxRetries {
                 if _, err := tx.ExecContext(ctx, `UPDATE outbox SET status = 'FAILED' WHERE id = $1`, id); err != nil {

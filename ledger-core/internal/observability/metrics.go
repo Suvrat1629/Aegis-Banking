@@ -32,13 +32,13 @@ var (
 		Help: "Current database connection pool size",
 	})
 
-	RabbitMQPublishTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "aegis_ledger_rabbitmq_publish_total",
-		Help: "Total messages published to RabbitMQ",
+	KafkaPublishTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "aegis_ledger_kafka_publish_total",
+		Help: "Total messages published to Kafka",
 	})
 
-	RabbitMQPublishFailures = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "aegis_ledger_rabbitmq_publish_failures_total",
-		Help: "Failed RabbitMQ publishes",
+	KafkaPublishFailures = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "aegis_ledger_kafka_publish_failures_total",
+		Help: "Failed Kafka publishes",
 	})
 )

@@ -18,10 +18,10 @@ import (
 type LedgerService struct {
 	pb.UnimplementedLedgerServiceServer
 	repo 	 *repository.AccountRepository
-	producer *queue.RabbitMQProducer
+	producer *queue.KafkaProducer
 }
 
-func NewLedgerService(repo *repository.AccountRepository, producer *queue.RabbitMQProducer) *LedgerService {
+func NewLedgerService(repo *repository.AccountRepository, producer *queue.KafkaProducer) *LedgerService {
 	return &LedgerService{
 		repo: 	  repo,
 		producer: producer,
@@ -60,7 +60,7 @@ func (s *LedgerService) ExecuteTransfer(ctx context.Context, req *pb.TransferReq
 		}, nil
 	}
 
-	// Publish to RabbitMQ for Logstash → Elasticsearch
+	// Publish to Kafka for Logstash → Elasticsearch
 	if s.producer != nil {
 		if pubErr := s.producer.PublishAudit(txnID, req.GetFromAccount(), req.GetToAccount(), req.GetAmount()); pubErr != nil {
 			log.Printf("Warning: Failed to publish audit event: %v", pubErr)

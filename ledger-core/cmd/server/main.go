@@ -33,7 +33,7 @@ type Config struct {
 	DBPassword   string
 	DBName       string
 	GRPCPort     string
-	RabbitMQURL  string
+	KafkaBrokers string
 	OTELEndpoint string
 }
 
@@ -83,11 +83,11 @@ func main() {
 
 	log.Println("Connected to PostgreSQL")
 
-	producer, err := queue.NewRabbitMQProducer(cfg.RabbitMQURL)
+	producer, err := queue.NewKafkaProducer(cfg.KafkaBrokers)
 	if err != nil {
-		log.Printf("Failed to connect to RabbitMQ: %v", err)
+		log.Printf("Failed to connect to Kafka: %v", err)
 	} else {
-		log.Printf("Connected to RabbitMQ")
+		log.Printf("Connected to Kafka")
 		defer producer.Close()
 	}
 
@@ -145,7 +145,7 @@ func loadConfig() Config {
 		DBPassword:   getEnv("DB_PASSWORD", "password"),
 		DBName:       getEnv("DB_NAME", "aegis_db"),
 		GRPCPort:     getEnv("GRPC_PORT", "50051"),
-		RabbitMQURL:  getEnv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/"),
+		KafkaBrokers: getEnv("KAFKA_BROKERS", "kafka:9092"),
 		OTELEndpoint: getEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "otel-collector:4317"),
 	}
 }
@@ -168,7 +168,7 @@ func waitForDB(db *sql.DB) error {
 	return db.Ping()
 }
 
-func waitForShutdown(grpcServer *grpc.Server, producer *queue.RabbitMQProducer, cancel context.CancelFunc) {
+func waitForShutdown(grpcServer *grpc.Server, producer *queue.KafkaProducer, cancel context.CancelFunc) {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
