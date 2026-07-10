@@ -134,3 +134,22 @@ func (s *LedgerService) GetAccountHistory(ctx context.Context, req *pb.HistoryRe
 	}
 	return &pb.HistoryResponse{Entries: entries}, nil
 }
+
+// RegisterAccount is called by account-service, as part of customer creation, to
+// create the ledger-side row that can hold a balance. Idempotent (see
+// AccountRepository.RegisterAccount) so it's safe for account-service to retry.
+func (s *LedgerService) RegisterAccount(ctx context.Context, req *pb.RegisterAccountRequest) (*pb.RegisterAccountResponse, error) {
+	if req == nil || req.GetAccountId() == "" || req.GetOwnerName() == "" {
+		return nil, status.Error(codes.InvalidArgument, "account_id and owner_name are required")
+	}
+
+	if err := s.repo.RegisterAccount(ctx, req.GetAccountId(), req.GetOwnerName()); err != nil {
+		log.Printf("RegisterAccount failed: %v", err)
+		return nil, status.Error(codes.Internal, "failed to register account")
+	}
+
+	return &pb.RegisterAccountResponse{
+		Success: true,
+		Message: "account registered",
+	}, nil
+}

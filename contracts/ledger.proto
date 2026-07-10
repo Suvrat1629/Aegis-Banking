@@ -7,6 +7,7 @@ service LedgerService {
   rpc ExecuteTransfer (TransferRequest) returns (TransferResponse);
   rpc GetAccountBalance (BalanceRequest) returns (BalanceResponse);
   rpc GetAccountHistory (HistoryRequest) returns (HistoryResponse);
+  rpc RegisterAccount (RegisterAccountRequest) returns (RegisterAccountResponse);
 }
 
 message TransferRequest {
@@ -52,4 +53,14 @@ message TransactionEntry {
 
 message HistoryResponse {
   repeated TransactionEntry entries = 1;
+}
+
+message RegisterAccountRequest {
+  string account_id = 1;
+  string owner_name = 2;
+}
+
+message RegisterAccountResponse {
+  bool   success = 1;
+  string message = 2;
 }

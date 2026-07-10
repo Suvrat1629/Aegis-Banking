@@ -479,7 +479,7 @@
     {
       "id": 13,
       "type": "row",
-      "title": "Outbox & Message Queue",
+      "title": "Outbox & Kafka",
       "collapsed": false,
       "gridPos": {"h": 1, "w": 24, "x": 0, "y": 22},
       "panels": []
@@ -488,19 +488,19 @@
     {
       "id": 14,
       "type": "timeseries",
-      "title": "RabbitMQ Publish Rate",
+      "title": "Kafka Publish Rate",
       "datasource": {"type": "prometheus", "uid": "${datasource}"},
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 23},
       "targets": [
         {
           "datasource": {"type": "prometheus", "uid": "${datasource}"},
-          "expr": "rate(aegis_ledger_rabbitmq_publish_total[1m])",
+          "expr": "rate(aegis_ledger_kafka_publish_total[1m])",
           "legendFormat": "Published/s",
           "refId": "A"
         },
         {
           "datasource": {"type": "prometheus", "uid": "${datasource}"},
-          "expr": "rate(aegis_ledger_rabbitmq_publish_failures_total[1m])",
+          "expr": "rate(aegis_ledger_kafka_publish_failures_total[1m])",
           "legendFormat": "Failures/s",
           "refId": "B"
         }
@@ -536,13 +536,13 @@
     {
       "id": 15,
       "type": "stat",
-      "title": "RabbitMQ: Total Published",
+      "title": "Kafka: Total Published",
       "datasource": {"type": "prometheus", "uid": "${datasource}"},
       "gridPos": {"h": 4, "w": 6, "x": 12, "y": 23},
       "targets": [
         {
           "datasource": {"type": "prometheus", "uid": "${datasource}"},
-          "expr": "aegis_ledger_rabbitmq_publish_total",
+          "expr": "aegis_ledger_kafka_publish_total",
           "legendFormat": "",
           "refId": "A"
         }
@@ -567,13 +567,13 @@
     {
       "id": 16,
       "type": "stat",
-      "title": "RabbitMQ: Publish Failures",
+      "title": "Kafka: Publish Failures",
       "datasource": {"type": "prometheus", "uid": "${datasource}"},
       "gridPos": {"h": 4, "w": 6, "x": 18, "y": 23},
       "targets": [
         {
           "datasource": {"type": "prometheus", "uid": "${datasource}"},
-          "expr": "aegis_ledger_rabbitmq_publish_failures_total",
+          "expr": "aegis_ledger_kafka_publish_failures_total",
           "legendFormat": "",
           "refId": "A"
         }

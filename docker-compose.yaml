@@ -34,21 +34,42 @@ services:
     networks:
       - aegis-network
 
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: aegis-mq
-    command: rabbitmq-server --rabbit vm_memory_high_watermark 0.8
+  kafka:
+    image: apache/kafka:latest
+    container_name: aegis-kafka
     environment:
-      - RABBITMQ_DISK_FREE_LIMIT=50MB
+      - KAFKA_NODE_ID=1
+      - KAFKA_PROCESS_ROLES=broker,controller
+      - KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "9092:9092"
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
       interval: 10s
       timeout: 10s
       retries: 10
       start_period: 30s
+    networks:
+      - aegis-network
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: aegis-kafka-ui
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=aegis
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+    ports:
+      - "8090:8080"
+    depends_on:
+      kafka:
+        condition: service_healthy
     networks:
       - aegis-network
 
@@ -67,15 +88,12 @@ services:
   logstash:
     image: docker.elastic.co/logstash/logstash:8.12.0
     container_name: aegis-logstash
-    environment:
-      - RABBITMQ_USER=${RABBITMQ_USER}
-      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
     volumes:
       - ./logstash/pipeline:/usr/share/logstash/pipeline
     depends_on:
       elasticsearch:
         condition: service_started
-      rabbitmq:
+      kafka:
         condition: service_healthy
     networks:
       - aegis-network
@@ -137,15 +155,130 @@ services:
       - DB_PASSWORD=password
       - DB_NAME=aegis_db
       - DB_SSLMODE=disable
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - KAFKA_BROKERS=kafka:9092
       - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
     depends_on:
       aegis-db:
         condition: service_healthy
-      rabbitmq:
+      kafka:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:2113/metrics > /dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - aegis-network
+
+  account-db:
+    image: postgres:15-alpine
+    container_name: aegis-account-db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: account_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./scripts/init-account-db.sql:/docker-entrypoint-initdb.d/init-account-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d account_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - aegis-network
+
+  account-service:
+    build:
+      context: ./account-service
+      dockerfile: Dockerfile
+    container_name: aegis-account-service
+    ports:
+      - "50052:50052"
+      - "2115:2115"
+    environment:
+      - DB_HOST=account-db
+      - DB_PORT=5432
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - DB_NAME=account_db
+      - DB_SSLMODE=disable
+      - KAFKA_BROKERS=kafka:9092
+      - LEDGER_GRPC_ADDR=ledger-core:50051
+    depends_on:
+      account-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      ledger-core:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:2115/metrics > /dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - aegis-network
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: aegis-mailpit
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI
+    networks:
+      - aegis-network
+
+  notification-db:
+    image: postgres:15-alpine
+    container_name: aegis-notification-db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: notification_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - ./scripts/init-notification-db.sql:/docker-entrypoint-initdb.d/init-notification-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d notification_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - aegis-network
+
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: aegis-notification-service
+    ports:
+      - "2114:2114"
+    environment:
+      - DB_HOST=notification-db
+      - DB_PORT=5432
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - DB_NAME=notification_db
+      - DB_SSLMODE=disable
+      - KAFKA_BROKERS=kafka:9092
+      - MAIL_HOST=mailpit
+      - MAIL_PORT=1025
+    depends_on:
+      notification-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:2114/metrics > /dev/null 2>&1"]
       interval: 5s
       timeout: 5s
       retries: 10

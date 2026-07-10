@@ -151,6 +151,21 @@ func (r *AccountRepository) ExecuteTransfer(ctx context.Context, transactionID, 
 	return nil
 }
 
+// RegisterAccount creates a new zero-balance account row. Idempotent: called by
+// account-service as part of customer creation, and may be retried safely if the
+// caller didn't get a response the first time (ON CONFLICT DO NOTHING).
+func (r *AccountRepository) RegisterAccount(ctx context.Context, accountID, ownerName string) error {
+	_, err := r.db.ExecContext(ctx,
+		`INSERT INTO accounts (id, owner_name, balance)
+		 VALUES ($1, $2, 0.00)
+		 ON CONFLICT (id) DO NOTHING`,
+		accountID, ownerName)
+	if err != nil {
+		return fmt.Errorf("failed to register account: %w", err)
+	}
+	return nil
+}
+
 func (r *AccountRepository) GetBalance(ctx context.Context, id string) (float64, string, string, error) {
 	var balance float64
 	var owner string

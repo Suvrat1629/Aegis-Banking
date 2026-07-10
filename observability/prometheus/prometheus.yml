@@ -18,6 +18,16 @@ scrape_configs:
       - targets: ['aegis-gateway:2112']
     metrics_path: /actuator/prometheus
 
+  - job_name: 'account-service'
+    static_configs:
+      - targets: ['aegis-account-service:2115']
+    metrics_path: /metrics
+
+  - job_name: 'notification-service'
+    static_configs:
+      - targets: ['aegis-notification-service:2114']
+    metrics_path: /metrics
+
   - job_name: 'ledger-core-local'
     static_configs:
       - targets: ['host.docker.internal:2113']
