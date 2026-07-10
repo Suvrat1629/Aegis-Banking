@@ -5,9 +5,6 @@ import (
 	"net/smtp"
 )
 
-// Mailer sends plain SMTP mail to Mailpit (a dev mail-catcher — real SMTP
-// protocol, but nothing leaves the machine; captured mail is viewable at its
-// web UI). No auth, no TLS — matches Mailpit's default unauthenticated setup.
 type Mailer struct {
 	addr string
 	from string
