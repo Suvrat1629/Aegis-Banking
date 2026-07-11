@@ -18,7 +18,7 @@ func NewAccountRepository(db *sql.DB) *AccountRepository {
 	return &AccountRepository{db: db}
 }
 
-func (r *AccountRepository) ExecuteTransfer(ctx context.Context, transactionID, from, to string, amount float64, deviceID, ipAddress, userAgent string) error {
+func (r *AccountRepository) ExecuteTransfer(ctx context.Context, transactionID, from, to string, amount float64, deviceID, ipAddress, userAgent, referenceTransactionID string) error {
 	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -32,7 +32,6 @@ func (r *AccountRepository) ExecuteTransfer(ctx context.Context, transactionID, 
 		return fmt.Errorf("failed to check existing transaction: %w", err)
 	}
 	if exists {
-		// already applied
 		return nil
 	}
 
@@ -56,7 +55,6 @@ func (r *AccountRepository) ExecuteTransfer(ctx context.Context, transactionID, 
 		return fmt.Errorf("failed to lock second account: %w", err)
 	}
 
-	// Now read balances (rows are locked)
 	var fromBalance float64
 	err = tx.QueryRowContext(ctx, "SELECT balance FROM accounts WHERE id = $1", from).Scan(&fromBalance)
 	if err != nil {
@@ -78,7 +76,6 @@ func (r *AccountRepository) ExecuteTransfer(ctx context.Context, transactionID, 
 		return fmt.Errorf("failed to read to account balance: %w", err)
 	}
 
-	// Apply balance updates
 	_, err = tx.ExecContext(ctx, "UPDATE accounts SET balance = balance - $1, last_updated = NOW() WHERE id = $2", amount, from)
 	if err != nil {
 		return fmt.Errorf("debit failed: %w", err)
@@ -88,7 +85,6 @@ func (r *AccountRepository) ExecuteTransfer(ctx context.Context, transactionID, 
 		return fmt.Errorf("credit failed: %w", err)
 	}
 
-	// Record a transaction header (used for idempotency and simple searching)
 	_, err = tx.ExecContext(ctx,
 		`INSERT INTO transaction_headers (transaction_id, from_account, to_account, amount, status)
 		 VALUES ($1, $2, $3, $4, 'COMPLETED')`,
@@ -97,19 +93,28 @@ func (r *AccountRepository) ExecuteTransfer(ctx context.Context, transactionID, 
 		return fmt.Errorf("failed to insert transaction header: %w", err)
 	}
 
+	metadata := map[string]string{}
+	if referenceTransactionID != "" {
+		metadata["reference_transaction_id"] = referenceTransactionID
+	}
+	metadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		return fmt.Errorf("failed to marshal ledger entry metadata: %w", err)
+	}
+
 	// Insert double-entry ledger rows: DEBIT on source (negative), CREDIT on destination (positive)
 	_, err = tx.ExecContext(ctx,
-		`INSERT INTO ledger_entries (transaction_id, account_id, amount, entry_type)
-		 VALUES ($1, $2, $3, 'DEBIT')`,
-		transactionID, from, -amount)
+		`INSERT INTO ledger_entries (transaction_id, account_id, amount, entry_type, metadata)
+		 VALUES ($1, $2, $3, 'DEBIT', $4)`,
+		transactionID, from, -amount, metadataJSON)
 	if err != nil {
 		return fmt.Errorf("failed to insert ledger debit entry: %w", err)
 	}
 
 	_, err = tx.ExecContext(ctx,
-		`INSERT INTO ledger_entries (transaction_id, account_id, amount, entry_type)
-		 VALUES ($1, $2, $3, 'CREDIT')`,
-		transactionID, to, amount)
+		`INSERT INTO ledger_entries (transaction_id, account_id, amount, entry_type, metadata)
+		 VALUES ($1, $2, $3, 'CREDIT', $4)`,
+		transactionID, to, amount, metadataJSON)
 	if err != nil {
 		return fmt.Errorf("failed to insert ledger credit entry: %w", err)
 	}
@@ -121,13 +126,16 @@ func (r *AccountRepository) ExecuteTransfer(ctx context.Context, transactionID, 
 
 	auditPayload := map[string]interface{}{
 		"transaction_id": transactionID,
-		"from_account":	  from,
-		"to_account":	  to,
-		"amount":		  amount,
-		"device_id":	  deviceID,
-		"ip_address":	  ipAddress,
-		"user_agent":	  userAgent,
-		"status":		  "COMPLETED",
+		"from_account":   from,
+		"to_account":     to,
+		"amount":         amount,
+		"device_id":      deviceID,
+		"ip_address":     ipAddress,
+		"user_agent":     userAgent,
+		"status":         "COMPLETED",
+	}
+	if referenceTransactionID != "" {
+		auditPayload["reference_transaction_id"] = referenceTransactionID
 	}
 
 	payloadBytes, err := json.Marshal(auditPayload)
@@ -151,9 +159,6 @@ func (r *AccountRepository) ExecuteTransfer(ctx context.Context, transactionID, 
 	return nil
 }
 
-// RegisterAccount creates a new zero-balance account row. Idempotent: called by
-// account-service as part of customer creation, and may be retried safely if the
-// caller didn't get a response the first time (ON CONFLICT DO NOTHING).
 func (r *AccountRepository) RegisterAccount(ctx context.Context, accountID, ownerName string) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO accounts (id, owner_name, balance)
@@ -205,7 +210,7 @@ func (r *AccountRepository) GetHistory(ctx context.Context, id string, limit, of
 	for rows.Next() {
 		var e pb.TransactionEntry
 		var ts time.Time
-		if err := rows.Scan(&e.TransactionId, &e.Amount, &e.EntryType, &e.Description, &ts); err != nil {	
+		if err := rows.Scan(&e.TransactionId, &e.Amount, &e.EntryType, &e.Description, &ts); err != nil {
 			return nil, err
 		}
 		e.CreatedAt = ts.Format(time.RFC3339)

@@ -31,6 +31,9 @@ dependencies {
     // gRPC Client
     implementation 'net.devh:grpc-client-spring-boot-starter:3.1.0.RELEASE'
 
+    implementation 'io.github.resilience4j:resilience4j-circuitbreaker:2.2.0'
+    implementation 'io.github.resilience4j:resilience4j-micrometer:2.2.0'
+
     // JAXB for SOAP / XSD
     implementation 'wsdl4j:wsdl4j'
     implementation 'jakarta.xml.bind:jakarta.xml.bind-api'

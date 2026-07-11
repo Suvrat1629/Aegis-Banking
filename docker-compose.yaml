@@ -225,6 +225,59 @@ services:
     networks:
       - aegis-network
 
+  fraud-db:
+    image: postgres:15-alpine
+    container_name: aegis-fraud-db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: fraud_db
+    ports:
+      - "5435:5432"
+    volumes:
+      - ./scripts/init-fraud-db.sql:/docker-entrypoint-initdb.d/init-fraud-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d fraud_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - aegis-network
+
+  fraud-service:
+    build:
+      context: ./fraud-service
+      dockerfile: Dockerfile
+    container_name: aegis-fraud-service
+    ports:
+      - "50053:50053"
+      - "2116:2116"
+    environment:
+      - DB_HOST=fraud-db
+      - DB_PORT=5432
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - DB_NAME=fraud_db
+      - DB_SSLMODE=disable
+      - KAFKA_BROKERS=kafka:9092
+      - LEDGER_GRPC_ADDR=ledger-core:50051
+    depends_on:
+      fraud-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      ledger-core:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:2116/metrics > /dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - aegis-network
+
   mailpit:
     image: axllent/mailpit:latest
     container_name: aegis-mailpit
@@ -299,6 +352,8 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:
       ledger-core:
+        condition: service_healthy
+      fraud-service:
         condition: service_healthy
     restart: unless-stopped
     networks:

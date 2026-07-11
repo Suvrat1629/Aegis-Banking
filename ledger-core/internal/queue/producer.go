@@ -34,18 +34,19 @@ func NewKafkaProducer(brokers string) (*KafkaProducer, error) {
 	return &KafkaProducer{writer: writer}, nil
 }
 
-func (p *KafkaProducer) PublishAudit(txnID, from, to string, amount float64) error {
+func (p *KafkaProducer) PublishAudit(txnID, from, to string, amount float64, refTxnID string) error {
 	event := AuditEvent{
-		TransactionID: txnID,
-		FromAccount:   from,
-		ToAccount:     to,
-		Amount:        amount,
-		Status:        "COMPLETED",
-		Timestamp:     time.Now(),
-		Message:       "Transfer completed successfully",
-		Currency:      "INR",
-		EventType:     "TRANSFER_COMPLETED",
-		AggregateType: "TRANSFER",
+		TransactionID:          txnID,
+		FromAccount:            from,
+		ToAccount:              to,
+		Amount:                 amount,
+		Status:                 "COMPLETED",
+		Timestamp:              time.Now(),
+		Message:                "Transfer completed successfully",
+		Currency:               "INR",
+		EventType:              "TRANSFER_COMPLETED",
+		AggregateType:          "TRANSFER",
+		ReferenceTransactionID: refTxnID,
 	}
 
 	body, err := json.Marshal(event)

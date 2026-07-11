@@ -28,6 +28,11 @@ scrape_configs:
       - targets: ['aegis-notification-service:2114']
     metrics_path: /metrics
 
+  - job_name: 'fraud-service'
+    static_configs:
+      - targets: ['aegis-fraud-service:2116']
+    metrics_path: /metrics
+
   - job_name: 'ledger-core-local'
     static_configs:
       - targets: ['host.docker.internal:2113']

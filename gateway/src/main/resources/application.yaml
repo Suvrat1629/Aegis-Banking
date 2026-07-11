@@ -10,7 +10,10 @@ grpc:
     ledger:
       address: static://ledger-core:50051
       negotiation-type: plaintext
-          
+    fraud:
+      address: static://fraud-service:50053
+      negotiation-type: plaintext
+
 logging:
   level:
     com.aegis.gateway: DEBUG

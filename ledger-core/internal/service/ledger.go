@@ -15,15 +15,16 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
 type LedgerService struct {
 	pb.UnimplementedLedgerServiceServer
-	repo 	 *repository.AccountRepository
+	repo     *repository.AccountRepository
 	producer *queue.KafkaProducer
 }
 
 func NewLedgerService(repo *repository.AccountRepository, producer *queue.KafkaProducer) *LedgerService {
 	return &LedgerService{
-		repo: 	  repo,
+		repo:     repo,
 		producer: producer,
 	}
 }
@@ -49,7 +50,9 @@ func (s *LedgerService) ExecuteTransfer(ctx context.Context, req *pb.TransferReq
 		txnID = fmt.Sprintf("txn_%d", time.Now().UnixNano())
 	}
 
-	err := s.repo.ExecuteTransfer(ctx, txnID, req.GetFromAccount(), req.GetToAccount(), req.GetAmount(), req.GetDeviceId(), req.GetIpAddress(), req.GetUserAgent())
+	refTxnID := req.GetReferenceTransactionId()
+
+	err := s.repo.ExecuteTransfer(ctx, txnID, req.GetFromAccount(), req.GetToAccount(), req.GetAmount(), req.GetDeviceId(), req.GetIpAddress(), req.GetUserAgent(), refTxnID)
 	if err != nil {
 		log.Printf("Transfer failed: %v", err)
 		observability.TransferFailureTotal.WithLabelValues(classifyTransferError(err)).Inc()
@@ -62,7 +65,7 @@ func (s *LedgerService) ExecuteTransfer(ctx context.Context, req *pb.TransferReq
 
 	// Publish to Kafka for Logstash → Elasticsearch
 	if s.producer != nil {
-		if pubErr := s.producer.PublishAudit(txnID, req.GetFromAccount(), req.GetToAccount(), req.GetAmount()); pubErr != nil {
+		if pubErr := s.producer.PublishAudit(txnID, req.GetFromAccount(), req.GetToAccount(), req.GetAmount(), refTxnID); pubErr != nil {
 			log.Printf("Warning: Failed to publish audit event: %v", pubErr)
 		}
 	}
@@ -78,9 +81,6 @@ func (s *LedgerService) ExecuteTransfer(ctx context.Context, req *pb.TransferReq
 	}, nil
 }
 
-// classifyTransferError buckets repository errors into a small, bounded set of
-// Prometheus label values. The raw error text (which embeds account IDs/amounts)
-// must never be used as a label value directly — that would blow up cardinality.
 func classifyTransferError(err error) string {
 	msg := err.Error()
 	switch {
@@ -135,9 +135,6 @@ func (s *LedgerService) GetAccountHistory(ctx context.Context, req *pb.HistoryRe
 	return &pb.HistoryResponse{Entries: entries}, nil
 }
 
-// RegisterAccount is called by account-service, as part of customer creation, to
-// create the ledger-side row that can hold a balance. Idempotent (see
-// AccountRepository.RegisterAccount) so it's safe for account-service to retry.
 func (s *LedgerService) RegisterAccount(ctx context.Context, req *pb.RegisterAccountRequest) (*pb.RegisterAccountResponse, error) {
 	if req == nil || req.GetAccountId() == "" || req.GetOwnerName() == "" {
 		return nil, status.Error(codes.InvalidArgument, "account_id and owner_name are required")

@@ -18,6 +18,10 @@ message TransferRequest {
   string device_id       = 5;
   string ip_address      = 6;
   string user_agent      = 7;
+  // Set only on compensating reversals issued by fraud-service's saga; empty
+  // for ordinary transfers. Lets downstream consumers (fraud-service itself,
+  // for its loop guard) tell a reversal apart from the transfer it reverses.
+  string reference_transaction_id = 8;
 }
 
 message TransferResponse {

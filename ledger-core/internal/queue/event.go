@@ -13,4 +13,5 @@ type AuditEvent struct {
 	Currency      string    `json:"currency,omitempty"`
 	EventType     string    `json:"event_type"`
 	AggregateType string    `json:"aggregate_type"`
+	ReferenceTransactionID string `json:"reference_transaction_id,omitempty"`
 }

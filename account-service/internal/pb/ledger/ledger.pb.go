@@ -30,8 +30,12 @@ type TransferRequest struct {
 	DeviceId      string                 `protobuf:"bytes,5,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
 	IpAddress     string                 `protobuf:"bytes,6,opt,name=ip_address,json=ipAddress,proto3" json:"ip_address,omitempty"`
 	UserAgent     string                 `protobuf:"bytes,7,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Set only on compensating reversals issued by fraud-service's saga; empty
+	// for ordinary transfers. Lets downstream consumers (fraud-service itself,
+	// for its loop guard) tell a reversal apart from the transfer it reverses.
+	ReferenceTransactionId string `protobuf:"bytes,8,opt,name=reference_transaction_id,json=referenceTransactionId,proto3" json:"reference_transaction_id,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *TransferRequest) Reset() {
@@ -109,6 +113,13 @@ func (x *TransferRequest) GetIpAddress() string {
 func (x *TransferRequest) GetUserAgent() string {
 	if x != nil {
 		return x.UserAgent
+	}
+	return ""
+}
+
+func (x *TransferRequest) GetReferenceTransactionId() string {
+	if x != nil {
+		return x.ReferenceTransactionId
 	}
 	return ""
 }
@@ -573,7 +584,7 @@ var File_ledger_proto protoreflect.FileDescriptor
 
 const file_ledger_proto_rawDesc = "" +
 	"\n" +
-	"\fledger.proto\x12\x06ledger\"\xed\x01\n" +
+	"\fledger.proto\x12\x06ledger\"\xa7\x02\n" +
 	"\x0fTransferRequest\x12%\n" +
 	"\x0etransaction_id\x18\x01 \x01(\tR\rtransactionId\x12!\n" +
 	"\ffrom_account\x18\x02 \x01(\tR\vfromAccount\x12\x1d\n" +
@@ -584,7 +595,8 @@ const file_ledger_proto_rawDesc = "" +
 	"\n" +
 	"ip_address\x18\x06 \x01(\tR\tipAddress\x12\x1d\n" +
 	"\n" +
-	"user_agent\x18\a \x01(\tR\tuserAgent\"m\n" +
+	"user_agent\x18\a \x01(\tR\tuserAgent\x128\n" +
+	"\x18reference_transaction_id\x18\b \x01(\tR\x16referenceTransactionId\"m\n" +
 	"\x10TransferResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12%\n" +

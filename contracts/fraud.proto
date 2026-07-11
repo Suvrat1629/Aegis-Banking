@@ -1,0 +1,23 @@
+syntax = "proto3";
+package fraud;
+option java_package = "com.aegis.fraud.grpc";
+option go_package = "github.com/aegis-banking/fraud-service/internal/pb/fraud;fraud";
+
+service FraudService {
+  rpc CheckTransfer (FraudCheckRequest) returns (FraudCheckResponse);
+}
+
+message FraudCheckRequest {
+  string transaction_id = 1;
+  string from_account   = 2;
+  string to_account     = 3;
+  double amount         = 4;
+  string device_id      = 5;
+  string ip_address     = 6;
+}
+
+message FraudCheckResponse {
+  string verdict = 1;   // "ALLOW" | "BLOCK"
+  double score   = 2;   // 0.0-1.0, informational
+  string reason  = 3;   // e.g. "amount_over_threshold", "velocity", ""
+}
